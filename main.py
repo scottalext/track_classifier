@@ -24,15 +24,36 @@ def generate_data_frame(data):
 
 def get_live_data():
     session = requests.Session()
-    header = {
-        "Authorization": "Bearer " + os.getenv("SPOTIFY_CLIENT_SECRET")
-    }
-    search_url_base = "https://api.spotify.com/v1/search?"
-    search_query = "q=artist:ERRA"
-    combined_search_url = search_url_base + search_query
 
-    search_response = session.get(combined_search_url, headers=header, timeout=3)
-    print(search_response)
+    # Auth
+    CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+    CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+    auth_url = "https://accounts.spotify.com/api/token"
+    auth_response = session.post(auth_url, data={
+        "grant_type": "client_credentials",
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET
+    })
+    auth_data = auth_response.json()
+    access_token = auth_data.get("access_token")
+
+    # Search
+    search_url= "https://api.spotify.com/v1/search"
+    header = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    query_params = {
+        "q": "artist:ERRA",
+        "type": "artist",
+        "market": "US"
+    }
+
+    search_response = session.get(search_url, headers=header, params=query_params, timeout=3)
+    if search_response.status_code == 200:
+        search_res = search_response.json()
+        print(search_res)
+    else:
+        raise Exception(f"Error: {search_response.status_code}: {search_response.text}")
 
 def main():
     """
