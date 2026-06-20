@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
 import kagglehub
+import numpy as np
 import os
 import pandas as pd
 import requests
-
-
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 def get_historic_data():
     """
@@ -15,12 +18,48 @@ def get_historic_data():
     path = kagglehub.dataset_download("maharshipandya/-spotify-tracks-dataset") + "/dataset.csv"
     return path
 
-def generate_data_frame(data):
+def load_and_clean_historic_data(data):
     """
-    Generate pandas data frame for .csv data
+    Create data frame and clean data
     """
     df = pd.read_csv(data)
-    return df
+
+    # drop rows with null values
+    print(f"Data set length prior to cleaning: {len(df)}")
+    df_clean = df.dropna()
+    print(f"Data set length after cleaning: {len(df_clean)}")
+    # drop columns with all unique values
+    df_clean = df_clean.drop(columns=["track_id", "artists", "album_name", "track_name"])
+
+    # one-hot encoding
+    categorical_cols = df_clean.select_dtypes(include=["string", "boolean"]).columns.tolist()
+    print(f"Columns with categorical data:\n{categorical_cols}")
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].astype('category')
+    df_clean = pd.get_dummies(df_clean, columns=categorical_cols, dtype=int, drop_first=True)
+
+    # identify which tracks are a 'hit' based on popularity
+    hit_idx = df_clean.index[df_clean['popularity'] >= 70]
+    print(f"Number of hits from historic data set: {len(hit_idx)}")
+    df_clean['hit'] = np.where(df_clean['popularity'] >= 70, 1, 0)
+    hit_idx_check = df_clean.index[df_clean['hit'] == 1]
+    print(f"verify hit tracks are properly identified: {hit_idx == hit_idx_check}")
+
+    return df_clean
+
+def train_model(clean_df):
+    """
+    Use Binomial Logistic Regression model to classify hits
+    """
+    # split data into training and test data
+    X = clean_df.drop(columns=['hit'])
+    y = clean_df['hit']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=33)
+    pipe = make_pipeline(StandardScaler(), LogisticRegression())
+    pipe.fit(X_train, y_train)
+
+    model_score = pipe.score(X_test, y_test)
+    print(f"Model Score: {model_score}")
 
 def get_live_data():
     session = requests.Session()
@@ -59,10 +98,14 @@ def main():
     """
     Main program
     """
+    os.system("cls" if os.name == "nt" else "clear")
     load_dotenv()
     historic_data = get_historic_data()
-    historic_df = generate_data_frame(historic_data)
-    get_live_data()
+    cleaned_data = load_and_clean_historic_data(historic_data)
+    train_model(cleaned_data)
+    # get_live_data()
+
+
 
 if "__main__" == __name__:
     main()
