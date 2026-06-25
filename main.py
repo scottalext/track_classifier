@@ -2,12 +2,13 @@ from collections import Counter
 from dotenv import load_dotenv
 from imblearn.over_sampling import SMOTE
 import kagglehub
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import requests
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -69,17 +70,18 @@ def train_model(clean_df):
 
     # evaluate model performance
     target_names = ["Flop", "Hit"]
-    model_score = pipe.score(x_test, y_test)
     print("\n\n")
     print(40 * "*")
     print("MODEL PERFORMANCE EVALUATION")
     print(40 * "*")
-    print(f"Model Score: {model_score}")
-    predictions = pipe.predict(x_test)
+    y_pred = pipe.predict(x_test)
     print(f"Number of real hits in test set: {len(np.where(y_test == 1)[0])}")
-    print(f"Number of hits predicted: {len(np.where(predictions == 1)[0])}")
-    report = classification_report(y_test, predictions, target_names=target_names)
+    print(f"Number of hits predicted: {len(np.where(y_pred == 1)[0])}")
+    report = classification_report(y_test, y_pred, target_names=target_names)
     print(report)
+
+    ConfusionMatrixDisplay.from_predictions(y_test, y_pred)
+    plt.show()
 
 def get_live_data():
     session = requests.Session()
