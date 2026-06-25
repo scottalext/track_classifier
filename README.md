@@ -9,7 +9,9 @@ a 'hit' or a 'flop'. You will need to have Kagglehub and Spotify api keys to run
 Clone the repository to your machine.
 
 Install the required dependencies via pip. (It is recommended to do this in a virtual env).
-*TODO: create a requirements.txt file*
+```
+pip install -r requirements.txt
+```
 
 Setup a .env file with the following variables:
 ```
