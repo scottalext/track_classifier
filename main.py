@@ -1,11 +1,13 @@
+from collections import Counter
 from dotenv import load_dotenv
+from imblearn.over_sampling import SMOTE
 import kagglehub
 import numpy as np
 import os
 import pandas as pd
 import requests
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -33,7 +35,6 @@ def load_and_clean_historic_data(data):
 
     # one-hot encoding
     categorical_cols = df_clean.select_dtypes(include=["string", "boolean"]).columns.tolist()
-    print(f"Columns with categorical data:\n{categorical_cols}")
     for col in categorical_cols:
         df_clean[col] = df_clean[col].astype('category')
     df_clean = pd.get_dummies(df_clean, columns=categorical_cols, dtype=int, drop_first=True)
@@ -51,15 +52,34 @@ def train_model(clean_df):
     """
     Use Binomial Logistic Regression model to classify hits
     """
-    # split data into training and test data
-    X = clean_df.drop(columns=['hit'])
+    # data oversampling to fix imbalances
+    x = clean_df.drop(columns=["hit", "popularity"])
     y = clean_df['hit']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=33)
-    pipe = make_pipeline(StandardScaler(), LogisticRegression())
-    pipe.fit(X_train, y_train)
+    print(f"Original dataset split: {Counter(y)}")
+    sm = SMOTE(random_state=33)
+    x_res, y_res = sm.fit_resample(x, y)
+    print(f"Resampled dataset split: {Counter(y_res)}")
 
-    model_score = pipe.score(X_test, y_test)
+    # split data into training and test data
+    x_train, x_test, y_train, y_test = train_test_split(x_res, y_res, test_size=0.2, random_state=33)
+
+    # create model on training set
+    pipe = make_pipeline(StandardScaler(), LogisticRegression())
+    pipe.fit(x_train, y_train)
+
+    # evaluate model performance
+    target_names = ["Flop", "Hit"]
+    model_score = pipe.score(x_test, y_test)
+    print("\n\n")
+    print(40 * "*")
+    print("MODEL PERFORMANCE EVALUATION")
+    print(40 * "*")
     print(f"Model Score: {model_score}")
+    predictions = pipe.predict(x_test)
+    print(f"Number of real hits in test set: {len(np.where(y_test == 1)[0])}")
+    print(f"Number of hits predicted: {len(np.where(predictions == 1)[0])}")
+    report = classification_report(y_test, predictions, target_names=target_names)
+    print(report)
 
 def get_live_data():
     session = requests.Session()
